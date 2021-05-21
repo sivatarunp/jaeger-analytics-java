@@ -74,7 +74,7 @@ public class SparkRunner {
             ConsumerStrategies.Subscribe(topics, kafkaParams));
 
     JavaPairDStream<String, Span> traceIdSpanTuple = messages.mapToPair(record -> {
-      return new Tuple2<>(record.value().traceId, record.value());
+      return new Tuple2<>(record.value().traceID, record.value());
     });
 
    JavaDStream<Trace> tracesStream = traceIdSpanTuple.groupByKey().map(traceIdSpans -> {

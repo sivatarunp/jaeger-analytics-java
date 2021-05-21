@@ -4,13 +4,14 @@ import io.jaegertracing.analytics.ModelRunner;
 import io.jaegertracing.analytics.gremlin.GraphCreator;
 import io.jaegertracing.analytics.model.Span;
 import io.prometheus.client.Counter;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 /**
  * Emits a passing score if the version number of a client is higher than the ones specified and a failing score
@@ -83,7 +84,7 @@ public class MinimumClientVersion implements ModelRunner {
         while (vertices.hasNext()) {
             Vertex vertex = vertices.next();
             Span span = GraphCreator.toSpan(vertex);
-            String jaegerVersion = span.tags.get(VERSION_TAG);
+            String jaegerVersion = span.tag.get(VERSION_TAG);
             if (jaegerVersion == null || jaegerVersion.isEmpty()) {
                 jaegerVersion = MISSING_VERSION;
             }
@@ -94,7 +95,7 @@ public class MinimumClientVersion implements ModelRunner {
     }
 
     public boolean computeScore(Span span) {
-        String version = span.tags.get(VERSION_TAG);
+        String version = span.tag.get(VERSION_TAG);
         if (version == null || version.isEmpty()) {
             return false;
         }

@@ -1,6 +1,8 @@
 package io.jaegertracing.analytics;
 
 import io.jaegertracing.analytics.model.Span;
+import io.jaegertracing.api_v2.Model;
+
 import java.util.UUID;
 
 /**
@@ -14,8 +16,8 @@ public class Util {
     Span span = new Span();
     span.serviceName = serviceName;
     span.operationName = operationName;
-    span.spanId = UUID.randomUUID().toString();
-    span.traceId = UUID.randomUUID().toString();
+    span.spanID = UUID.randomUUID().toString();
+    span.traceID = UUID.randomUUID().toString();
     return span;
   }
 
@@ -23,9 +25,14 @@ public class Util {
     Span span = new Span();
     span.serviceName = serviceName;
     span.operationName = operationName;
-    span.spanId = UUID.randomUUID().toString();
-    span.traceId = parent.traceId;
-    span.parentId = parent.spanId;
+    span.spanID = UUID.randomUUID().toString();
+    span.traceID = parent.traceID;
+    Span.Reference reference = new Span.Reference();
+    reference.spanID = parent.spanID;
+    reference.traceID = parent.traceID;
+    reference.refType = Model.SpanRefType.CHILD_OF.name();
+    span.references.add(reference);
+    //span.parentId = parent.spanID;
     return span;
   }
 }

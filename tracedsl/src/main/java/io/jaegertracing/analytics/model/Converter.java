@@ -6,10 +6,11 @@ import com.google.protobuf.Timestamp;
 import io.jaegertracing.api_v2.Model;
 import io.jaegertracing.api_v2.Model.KeyValue;
 import io.jaegertracing.api_v2.Model.Log;
+
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,11 +38,11 @@ public class Converter {
     Map<String, Trace> traces = new LinkedHashMap<>();
     for (Model.Span protoSpan: spanList) {
       Span span = toModel(protoSpan);
-      Trace trace = traces.get(span.traceId);
+      Trace trace = traces.get(span.traceID);
       if (trace == null) {
         trace = new Trace();
-        trace.traceId = span.traceId;
-        traces.put(span.traceId, trace);
+        trace.traceId = span.traceID;
+        traces.put(span.traceID, trace);
       }
       trace.spans.add(span);
     }
@@ -50,23 +51,36 @@ public class Converter {
 
   public static Span toModel(Model.Span protoSpan) {
     Span span = new Span();
-    span.spanId = toStringId(protoSpan.getSpanId());
-    span.traceId = toStringId(protoSpan.getTraceId());
+    span.spanID = toStringId(protoSpan.getSpanId());
+    span.traceID = toStringId(protoSpan.getTraceId());
     if (protoSpan.getReferencesList().size() > 0) {
-      span.parentId = toStringId(protoSpan.getReferencesList().get(0).getSpanId());
+      Model.SpanRef parent = protoSpan.getReferencesList().get(0);
+      Span.Reference reference = new Span.Reference();
+      reference.spanID = parent.getSpanId().toString();
+      reference.traceID = parent.getTraceId().toString();
+      reference.refType = Model.SpanRefType.CHILD_OF.name();
+      span.references.add(reference);
     }
 
     span.serviceName = protoSpan.getProcess().getServiceName();
     span.operationName = protoSpan.getOperationName();
-    span.startTimeMicros = timestampToMicros(protoSpan.getStartTime());
-    span.durationMicros = durationToMicros(protoSpan.getDuration());
+    span.startTime = timestampToMicros(protoSpan.getStartTime());
+    span.duration = durationToMicros(protoSpan.getDuration());
 
-    span.tags = toMap(protoSpan.getTagsList());
+    span.tag = toMap(protoSpan.getTagsList());
     span.logs = new ArrayList<>();
     for (Log protoLog: protoSpan.getLogsList()) {
       Span.Log log = new Span.Log();
       log.timestamp = timestampToMicros(protoLog.getTimestamp());
-      log.fields = toMap(protoLog.getFieldsList());
+      log.fields = new ArrayList<>();
+      for (KeyValue keyValue : protoLog.getFieldsList()) {
+        Map<String, String> keyValueMap = new HashMap<>();
+        keyValueMap.put("key", keyValue.getKey());
+        keyValueMap.put("value", keyValue.getVStr());
+        keyValueMap.put("type", keyValue.getVType().name());
+        log.fields.add(keyValueMap);
+      }
+      protoLog.getFieldsList();
       span.logs.add(log);
     }
 
@@ -87,13 +101,13 @@ public class Converter {
 
   private static Map<String, String> toMap(List<KeyValue> tags) {
     Map<String, String> tagMap = new LinkedHashMap<>();
-    for (Model.KeyValue keyValue: tags) {
+    for (KeyValue keyValue: tags) {
       tagMap.put(keyValue.getKey(), toStringValue(keyValue));
     }
     return tagMap;
   }
 
-  private static String toStringValue(Model.KeyValue keyValue) {
+  private static String toStringValue(KeyValue keyValue) {
     switch (keyValue.getVType()) {
       case STRING:
         return keyValue.getVStr();

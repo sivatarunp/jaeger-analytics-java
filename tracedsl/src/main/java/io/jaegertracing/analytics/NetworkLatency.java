@@ -5,15 +5,17 @@ import io.jaegertracing.analytics.gremlin.TraceTraversal;
 import io.jaegertracing.analytics.gremlin.TraceTraversalSource;
 import io.jaegertracing.analytics.gremlin.Util;
 import io.opentracing.tag.Tags;
+import io.prometheus.client.Gauge;
 import io.prometheus.client.Histogram;
 import io.prometheus.client.Histogram.Child;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 /**
  * Network latency between client and server spans. Name contains service names.
@@ -29,12 +31,21 @@ public class NetworkLatency implements ModelRunner {
       .create()
       .register();
 
+  private static final Gauge gauge = Gauge.build()
+          .name("network_latency_gauge_seconds")
+          .help("Network latency between client and server span")
+          .labelNames("client", "server")
+          .create()
+          .register();
+
   public void runWithMetrics(Graph graph) {
     Map<Name, Set<Double>> latencies = calculate(graph);
     for (Map.Entry<Name, Set<Double>> entry: latencies.entrySet()) {
       Child child = histogram.labels(entry.getKey().client, entry.getKey().server);
+      Gauge.Child child_gauge = gauge.labels(entry.getKey().client, entry.getKey().server);
       for (Double latency: entry.getValue()) {
         child.observe(latency);
+        child_gauge.inc(latency);
       }
     }
   }
@@ -52,14 +63,10 @@ public class NetworkLatency implements ModelRunner {
           String serverService = (String)child.property(Keys.SERVICE_NAME).value();
           Long clientStartTime = (Long)client.property(Keys.START_TIME).value();
           Long serverStartTime = (Long)child.property(Keys.START_TIME).value();
-          Long latency = serverStartTime - clientStartTime;
+          long latency = serverStartTime - clientStartTime;
 
           Name name = new Name(clientService, serverService);
-          Set<Double> latencies = results.get(name);
-          if (latencies == null) {
-            latencies = new LinkedHashSet<>();
-            results.put(name, latencies);
-          }
+          Set<Double> latencies = results.computeIfAbsent(name, k -> new LinkedHashSet<>());
           latencies.add(latency/(1000.0*1000.0));
         }
       }

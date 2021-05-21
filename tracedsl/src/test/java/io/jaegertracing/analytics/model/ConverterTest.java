@@ -6,6 +6,7 @@ import com.google.protobuf.Timestamp;
 import io.jaegertracing.api_v2.Model;
 import org.junit.Assert;
 import org.junit.Test;
+
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,7 +29,7 @@ public class ConverterTest {
 
     Span convertedSpan = Converter.toModel(protoSpan);
 
-    Assert.assertEquals(2154000L, convertedSpan.durationMicros);
+    Assert.assertEquals(2154000L, convertedSpan.duration);
   }
   
   @Test
@@ -39,7 +40,7 @@ public class ConverterTest {
 
     Span convertedSpan = Converter.toModel(protoSpan);
 
-    Assert.assertEquals(1_350_001_391L, convertedSpan.startTimeMicros);
+    Assert.assertEquals(1_350_001_391L, convertedSpan.startTime);
   }
   
   @Test

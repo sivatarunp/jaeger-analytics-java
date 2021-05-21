@@ -8,10 +8,12 @@ import io.jaegertracing.analytics.gremlin.Util;
 import io.jaegertracing.analytics.model.Span;
 import io.opentracing.tag.Tags;
 import io.prometheus.client.Counter;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class HasClientServerSpans implements ModelRunner {
 
@@ -63,18 +65,18 @@ public class HasClientServerSpans implements ModelRunner {
             List<Vertex> children = Util.children(vertex);
             if (children == null || children.isEmpty()) {
                 Span clientSpan = GraphCreator.toSpan(vertex);
-                String peerService = clientSpan.tags.get(Tags.PEER_SERVICE.getKey());
-                if (peerService != null) {
+                Optional<Span.Tag> peerServiceOpt = clientSpan.tags.stream().filter(tag -> tag.key.equalsIgnoreCase(Tags.PEER_SERVICE.getKey())).findFirst();
+                if (peerServiceOpt.isPresent()) {
                     // TODO this could be exported as a not instrumented service
                     Span span = new Span();
-                    span.serviceName = peerService;
+                    span.serviceName = peerServiceOpt.get().value;
                     result.missingServerTag.add(span);
                 }
                 continue;
             }
             for (Vertex child : children) {
                 Span childSpan = GraphCreator.toSpan(child);
-                String spanKindTag = childSpan.tags.get(Tags.SPAN_KIND.getKey());
+                String spanKindTag = childSpan.tag.get(Tags.SPAN_KIND.getKey());
                 if (!Tags.SPAN_KIND_SERVER.equals(spanKindTag)) {
                     result.missingServerTag.add(childSpan);
                 } else {
@@ -90,17 +92,17 @@ public class HasClientServerSpans implements ModelRunner {
             Vertex parent = Util.parent(vertex);
             if (parent == null) {
                 Span serverSpan = GraphCreator.toSpan(vertex);
-                String peerService = serverSpan.tags.get(Tags.PEER_SERVICE.getKey());
-                if (peerService != null) {
+                Optional<Span.Tag> peerServiceOptional = serverSpan.tags.stream().filter(tag -> tag.key.equalsIgnoreCase(Tags.PEER_SERVICE.getKey())).findFirst();
+                if (peerServiceOptional.isPresent()) {
                     // TODO this could be exported as a not instrumented service
                     Span span = new Span();
-                    span.serviceName = peerService;
+                    span.serviceName = peerServiceOptional.get().value;
                     result.missingClientTag.add(span);
                 }
                 continue;
             }
             Span parentSpan = GraphCreator.toSpan(parent);
-            String spanKindTag = parentSpan.tags.get(Tags.SPAN_KIND.getKey());
+            String spanKindTag = parentSpan.tag.get(Tags.SPAN_KIND.getKey());
             if (!Tags.SPAN_KIND_CLIENT.equals(spanKindTag)) {
                 result.missingClientTag.add(parentSpan);
             } else {

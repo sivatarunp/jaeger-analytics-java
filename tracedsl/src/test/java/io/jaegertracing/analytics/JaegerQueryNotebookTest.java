@@ -15,16 +15,16 @@ import io.jaegertracing.api_v2.Query.TraceQueryParameters;
 import io.jaegertracing.api_v2.QueryServiceGrpc;
 import io.jaegertracing.api_v2.QueryServiceGrpc.QueryServiceBlockingStub;
 import io.opentracing.tag.Tags;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.junit.Ignore;
+import org.junit.Test;
+
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.junit.Ignore;
-import org.junit.Test;
 
 /**
  * This test class is used to test code from jupyter notebook jaeger-query.
@@ -60,7 +60,7 @@ public class JaegerQueryNotebookTest {
     Map<String, Integer> errorTypeAndCount = new LinkedHashMap<>();
     for (io.jaegertracing.analytics.model.Span errorSpan: errorSpans) {
       for (io.jaegertracing.analytics.model.Span.Log log: errorSpan.logs) {
-        String err = log.fields.get(Tags.ERROR.getKey());
+        String err = log.fields.stream().filter(field -> field.containsKey(Tags.ERROR.getKey())).findFirst().get().get(Tags.ERROR.getKey());
         if (err != null) {
           Integer count = errorTypeAndCount.get(err);
           if (count == null) {
@@ -102,7 +102,7 @@ public class JaegerQueryNotebookTest {
     Map<String, Map<String, Integer>> result = new LinkedHashMap<>();
     for (io.jaegertracing.analytics.model.Span errorSpan : errorSpans) {
       for (io.jaegertracing.analytics.model.Span.Log log : errorSpan.logs) {
-        String err = log.fields.get(Tags.ERROR.getKey());
+        String err = log.fields.stream().filter(field -> field.containsKey(Tags.ERROR.getKey())).findFirst().get().get(Tags.ERROR.getKey());
         if (err != null) {
           Map<String, Integer> traceIdCount = result.get(err);
           if (traceIdCount == null) {
@@ -110,11 +110,11 @@ public class JaegerQueryNotebookTest {
             result.put(err, traceIdCount);
           }
 
-          Integer count = traceIdCount.get(errorSpan.traceId);
+          Integer count = traceIdCount.get(errorSpan.traceID);
           if (count == null) {
             count = 0;
           }
-          traceIdCount.put(errorSpan.traceId, ++count);
+          traceIdCount.put(errorSpan.traceID, ++count);
         }
       }
     }

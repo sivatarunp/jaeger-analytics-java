@@ -9,10 +9,11 @@ import io.jaegertracing.analytics.model.Span;
 import io.jaegertracing.api_v2.Model;
 import io.jaegertracing.api_v2.Model.KeyValue;
 import io.jaegertracing.api_v2.Model.SpanRef;
+import org.apache.kafka.common.serialization.Deserializer;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
-import org.apache.kafka.common.serialization.Deserializer;
 
 public class ProtoSpanDeserializer implements Deserializer<Span>, Serializable {
 
@@ -36,20 +37,22 @@ public class ProtoSpanDeserializer implements Deserializer<Span>, Serializable {
 
   private Span fromProto(Model.Span protoSpan) {
     Span span = new Span();
-    span.traceId = asHexString(protoSpan.getTraceId());
-    span.spanId = asHexString(protoSpan.getSpanId());
+    span.traceID = asHexString(protoSpan.getTraceId());
+    span.spanID = asHexString(protoSpan.getSpanId());
     span.operationName = protoSpan.getOperationName();
     span.serviceName = protoSpan.getProcess().getServiceName();
-    span.startTimeMicros = Timestamps.toMicros(protoSpan.getStartTime());
-    span.durationMicros = Durations.toMicros(protoSpan.getDuration());
+    span.startTime = Timestamps.toMicros(protoSpan.getStartTime());
+    span.startTimeMillis = Timestamps.toMillis(protoSpan.getStartTime());
+    span.duration = Durations.toMicros(protoSpan.getDuration());
     addTags(span, protoSpan.getTagsList());
     addTags(span, protoSpan.getProcess().getTagsList());
-    if (protoSpan.getReferencesList().size() > 0) {
+    addRefs(span, protoSpan.getReferencesList());
+    /*if (protoSpan.getReferencesList().size() > 0) {
       SpanRef reference = protoSpan.getReferences(0);
-      if (asHexString(reference.getTraceId()).equals(span.traceId)) {
+      if (asHexString(reference.getTraceId()).equals(span.traceID)) {
         span.parentId = asHexString(protoSpan.getReferences(0).getSpanId());
       }
-    }
+    }*/
     return span;
   }
 
@@ -65,6 +68,16 @@ public class ProtoSpanDeserializer implements Deserializer<Span>, Serializable {
     return out.toString();
   }
 
+  private void addRefs(Span span, List<SpanRef> refs) {
+    for (SpanRef ref : refs) {
+      Span.Reference reference = new Span.Reference();
+      reference.refType = ref.getRefType().name();
+      reference.spanID = ref.getSpanId().toString();
+      reference.traceID = ref.getTraceId().toString();
+      span.references.add(reference);
+    }
+  }
+
   private void addTags(Span span, List<KeyValue> tags) {
     for (KeyValue kv : tags) {
       if (!Model.ValueType.STRING.equals(kv.getVType())) {
@@ -72,7 +85,7 @@ public class ProtoSpanDeserializer implements Deserializer<Span>, Serializable {
       }
       String value = kv.getVStr();
       if (value != null) {
-        span.tags.put(kv.getKey(), value);
+        span.tag.put(kv.getKey(), value);
       }
     }
   }

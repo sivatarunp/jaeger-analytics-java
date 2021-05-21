@@ -5,11 +5,13 @@ import static java.util.stream.Collectors.toList;
 import io.jaegertracing.analytics.gremlin.TraceTraversal;
 import io.jaegertracing.analytics.gremlin.TraceTraversalSource;
 import io.jaegertracing.analytics.gremlin.__;
+import io.prometheus.client.Gauge;
 import io.prometheus.client.Summary;
-import java.util.List;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+
+import java.util.List;
 
 /**
  * Maximum number of spans from root to leaf.
@@ -33,9 +35,15 @@ public class TraceHeight implements ModelRunner {
       .help("Trace height - maximum number of spans from root to leaf")
       .register();
 
+  private static final Gauge TRACE_HEIGHT_GAUGE = Gauge.build()
+          .name("trace_height_gauge")
+          .help("Trace height - maximum number of spans from root to leaf")
+          .register();
+
   public void runWithMetrics(Graph graph) {
     int height = calculate(graph);
     TRACE_HEIGHT_SUMMARY.observe(height);
+    TRACE_HEIGHT_GAUGE.inc(height);
   }
 
   public static int calculate(Graph graph) {

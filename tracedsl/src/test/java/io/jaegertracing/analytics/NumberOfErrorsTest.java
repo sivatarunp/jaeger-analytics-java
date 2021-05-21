@@ -4,10 +4,11 @@ import io.jaegertracing.analytics.gremlin.GraphCreator;
 import io.jaegertracing.analytics.model.Span;
 import io.jaegertracing.analytics.model.Trace;
 import io.opentracing.tag.Tags;
-import java.util.Arrays;
-import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.Set;
 
 /**
  * @author Pavol Loffay
@@ -22,13 +23,25 @@ public class NumberOfErrorsTest {
   @Test
   public void testCalculate() {
     Span root = Util.newTrace("root", "root");
-    root.tags.put(Tags.ERROR.getKey(), "true");
+    Span.Tag tag = new Span.Tag();
+    tag.key = Tags.ERROR.getKey();
+    tag.value = "true";
+    tag.type = "string";
+    root.tags.add(tag);
 
     Span child = Util.newChild("root", "child", root);
-    child.tags.put(Tags.ERROR.getKey(), "false");
+    tag = new Span.Tag();
+    tag.key = Tags.ERROR.getKey();
+    tag.value = "false";
+    tag.type = "string";
+    child.tags.add(tag);
 
     Span childChild = Util.newChild("root", "child", child);
-    child.tags.put(Tags.ERROR.getKey(), "true");
+    tag = new Span.Tag();
+    tag.key = Tags.ERROR.getKey();
+    tag.value = "true";
+    tag.type = "string";
+    child.tags.add(tag);
 
     Trace trace = new Trace();
     trace.spans.addAll(Arrays.asList(root, child, childChild));
