@@ -105,7 +105,7 @@ public class SparkKinesisRunner {
         JavaDStream<byte[]> dStream = JavaDStream.fromDStream(kinesisStream, ClassTag$.MODULE$.apply(byte[].class));
 
         long windowInterval = Integer.parseInt(getPropOrEnv("SPARK_STREAMING_WINDOW_DURATION", "60000"));
-        JavaDStream<Span> spanStream = dStream./*window(Duration.apply(windowInterval)).*/flatMap((FlatMapFunction<byte[], Span>) kinesisRecord -> {
+        JavaDStream<Span> spanStream = dStream.window(Duration.apply(windowInterval)).flatMap((FlatMapFunction<byte[], Span>) kinesisRecord -> {
             String payload = new String(decompress(kinesisRecord), StandardCharsets.UTF_8);
             String[] records = payload.split(System.lineSeparator());
             List<Span> spanList = new LinkedList<>();
