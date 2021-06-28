@@ -79,7 +79,7 @@
                 </transformer>
               </transformers>
               <!-- spark + scala + ... = lots and lots of classes! -->
-              <minimizeJar>true</minimizeJar>
+              <!-- <minimizeJar>true</minimizeJar> -->
               <filters>
                 <!-- Prevent minification from excluding classes looked up by name -->
                 <filter>
