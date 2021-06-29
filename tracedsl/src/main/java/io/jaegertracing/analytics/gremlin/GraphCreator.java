@@ -66,7 +66,7 @@ public class GraphCreator {
         vertex.property(tag.key.replace("@","."), tag.value);
       });
     }
-/*
+
     boolean hasOrphanSpan = false;
     for (Span span: trace.spans) {
       Vertex vertex = vertexMap.get(span.spanID);
@@ -76,18 +76,18 @@ public class GraphCreator {
         if (parent != null) {
           parent.addEdge(References.CHILD_OF, vertex);
         } else {
-          ORPHAN_SPAN_COUNTER.labels(span.serviceName, span.operationName).inc();
+          //ORPHAN_SPAN_COUNTER.labels(span.serviceName, span.operationName).inc();
           hasOrphanSpan = true;
         }
       } else {
-        TRACE_COUNTER.inc();
-        TRACE_SPAN_COUNTER.observe(trace.spans.size());
+        //TRACE_COUNTER.inc();
+        //TRACE_SPAN_COUNTER.observe(trace.spans.size());
       }
     }
     if(hasOrphanSpan) {
-      ORPHAN_SPAN_TRACE_COUNTER.inc();
+      //ORPHAN_SPAN_TRACE_COUNTER.inc();
     }
-*/
+
     return graph;
   }
 

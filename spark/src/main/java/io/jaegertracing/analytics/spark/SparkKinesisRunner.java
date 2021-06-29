@@ -42,6 +42,9 @@ import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
 import org.apache.log4j.Logger; 
 import org.apache.log4j.PropertyConfigurator;
+import java.util.Map;
+import java.util.HashMap;
+
 
 /**
  * @author Pavol Loffay
@@ -60,13 +63,20 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
      * PROMETHEUS_HOST
      * PROMETHEUS_PORT
      * All the above have default values
+
      * @param args
      * @throws InterruptedException
      * @throws IOException
      */
+    static final String  SPARK_MEMORY = "4073741824";     
+    static final String  SPARK_DEFAULT_PARALLELISM =  "30";
+    static final String  SPARK_EXECUTOR_CORES =    "1";
+    static final String  SPARK_DRIVER_CORES   =    "1";
+    static final String  SPARK_EXECUTOR_INSTANCES = "15";
+    static final String  SPARK_SERIALIZER = "org.apache.spark.serializer.KryoSerializer";
+    
     public static void main(String[] args) throws InterruptedException, IOException {
-         PropertyConfigurator.configure("/data/log4j.properties"); // can make it configurable
-         //@transient lazy  logger = LogManager.getRootLogger();
+
         HTTPServer server = new HTTPServer(getPropOrEnv("PROMETHEUS_HOST", "localhost"), Integer.parseInt(getPropOrEnv("PROMETHEUS_PORT", "9111")));
 
         JsonUtil.init(new ObjectMapper());
@@ -74,12 +84,13 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
         SparkConf sparkConf = new SparkConf()
                 .setAppName("Trace DSL")
                 .setMaster(getPropOrEnv("SPARK_MASTER", "local[*]"))
-                .set("spark.testing.memory", getPropOrEnv("SPARK_MEMORY", "4073741824"))
-                .set("spark.default.parallelism", getPropOrEnv("SPARK_DEFAULT_PARALLELISM", "30"))
-                .set("spark.executor.cores", getPropOrEnv("SPARK_EXECUTOR_CORES", "1"))
-                .set("spark.driver.cores", getPropOrEnv("SPARK_DRIVER_CORES", "1"))
-                .set("spark.executor.instances", getPropOrEnv("SPARK_EXECUTOR_INSTANCES", "15"))
-                .set("spark.serializer", getPropOrEnv("SPARK_SERIALIZER", "org.apache.spark.serializer.KryoSerializer"));
+                .set("spark.testing.memory", getPropOrEnv("SPARK_MEMORY", SPARK_MEMORY))
+                .set("spark.worker.cleanup.enabled", "true")
+                .set("spark.default.parallelism", getPropOrEnv("SPARK_DEFAULT_PARALLELISM", SPARK_DEFAULT_PARALLELISM))
+                .set("spark.executor.cores", getPropOrEnv("SPARK_EXECUTOR_CORES",SPARK_EXECUTOR_CORES ))
+                .set("spark.driver.cores", getPropOrEnv("SPARK_DRIVER_CORES", SPARK_DRIVER_CORES))
+                .set("spark.executor.instances", getPropOrEnv("SPARK_EXECUTOR_INSTANCES", SPARK_EXECUTOR_INSTANCES))
+                .set("spark.serializer", getPropOrEnv("SPARK_SERIALIZER", SPARK_SERIALIZER));
 
 /*  other explored values of settings 
                 .set("spark.cores.max", getPropOrEnv("SPARK_CORES_MAX", "16"))
@@ -99,9 +110,9 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
 
         String region = Regions.getCurrentRegion()!=null ? Regions.getCurrentRegion().getName()
                 : getPropOrEnv("AWS_REGION", Regions.US_EAST_1.getName());
-
-        String service_endpoint = getPropOrEnv("KINESIS_ENDPOINT", "https://kinesis.us-east-1.amazonaws.com");
-
+        
+        String service_endpoint = getPropOrEnv("KINESIS_ENDPOINT","NULL");
+        
         InitialPositionInStream initialPosition;
         try {
             initialPosition = InitialPositionInStream
