@@ -40,12 +40,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
+import org.apache.log4j.Logger; 
+import org.apache.log4j.PropertyConfigurator;
 
 /**
  * @author Pavol Loffay
  */
 public class SparkKinesisRunner {
-
+private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.getName());
     /**
      * System Properties that can be passed
      * SPARK_MASTER
@@ -63,6 +65,8 @@ public class SparkKinesisRunner {
      * @throws IOException
      */
     public static void main(String[] args) throws InterruptedException, IOException {
+         PropertyConfigurator.configure("/data/log4j.properties"); // can make it configurable
+         //@transient lazy  logger = LogManager.getRootLogger();
         HTTPServer server = new HTTPServer(getPropOrEnv("PROMETHEUS_HOST", "localhost"), Integer.parseInt(getPropOrEnv("PROMETHEUS_PORT", "9111")));
 
         JsonUtil.init(new ObjectMapper());
@@ -70,7 +74,18 @@ public class SparkKinesisRunner {
         SparkConf sparkConf = new SparkConf()
                 .setAppName("Trace DSL")
                 .setMaster(getPropOrEnv("SPARK_MASTER", "local[*]"))
-                .set("spark.testing.memory", getPropOrEnv("SPARK_MEMORY", "471859200"));
+                .set("spark.testing.memory", getPropOrEnv("SPARK_MEMORY", "4073741824"))
+                .set("spark.default.parallelism", getPropOrEnv("SPARK_DEFAULT_PARALLELISM", "30"))
+                .set("spark.executor.cores", getPropOrEnv("SPARK_EXECUTOR_CORES", "1"))
+                .set("spark.driver.cores", getPropOrEnv("SPARK_DRIVER_CORES", "1"))
+                .set("spark.executor.instances", getPropOrEnv("SPARK_EXECUTOR_INSTANCES", "15"))
+                .set("spark.serializer", getPropOrEnv("SPARK_SERIALIZER", "org.apache.spark.serializer.KryoSerializer"));
+
+/*  other explored values of settings 
+                .set("spark.cores.max", getPropOrEnv("SPARK_CORES_MAX", "16"))
+                .set("spark.default.parallelism", getPropOrEnv("SPARK_DEFAULT_PARALLELISM", "16"))
+                .set("spark.executor.cores", getPropOrEnv("SPARK_EXECUTOR_CORES", "12"))
+*/
 
         JavaSparkContext sc = new JavaSparkContext(sparkConf);
         long batchInterval = Integer.parseInt(getPropOrEnv("SPARK_STREAMING_BATCH_DURATION", "10000"));
@@ -85,27 +100,30 @@ public class SparkKinesisRunner {
         String region = Regions.getCurrentRegion()!=null ? Regions.getCurrentRegion().getName()
                 : getPropOrEnv("AWS_REGION", Regions.US_EAST_1.getName());
 
+        String service_endpoint = getPropOrEnv("KINESIS_ENDPOINT", "https://kinesis.us-east-1.amazonaws.com");
+
         InitialPositionInStream initialPosition;
         try {
             initialPosition = InitialPositionInStream
-                    .valueOf(getPropOrEnv("KINESIS_STREAM_POSITION", "TRIM_HORIZON"));
+                    .valueOf(getPropOrEnv("KINESIS_STREAM_POSITION", "LATEST"));
         } catch (IllegalArgumentException e) {
-            initialPosition = InitialPositionInStream.valueOf("TRIM_HORIZON");
+            initialPosition = InitialPositionInStream.valueOf("LATEST");
         }
-
+ 
+        String applicationName = (getPropOrEnv("SPARK_STREAMING_BATCH_DURATION", "10000"));
         KinesisInputDStream<byte[]> kinesisStream = KinesisInputDStream.builder()
                 .streamingContext(ssc)
                 .regionName(region)
                 .streamName(getPropOrEnv("KINESIS_STREAM", "common_haystack_traces"))
                 .initialPosition(KinesisInitialPositions.fromKinesisInitialPosition(initialPosition))
-                .checkpointAppName("trace-analytics")
+                .checkpointAppName(getPropOrEnv("DYNAMO_TABLE", "trace-analytics"))
                 .checkpointInterval(Duration.apply(60 * 1000))
                 .build();
 
         JavaDStream<byte[]> dStream = JavaDStream.fromDStream(kinesisStream, ClassTag$.MODULE$.apply(byte[].class));
-
-        long windowInterval = Integer.parseInt(getPropOrEnv("SPARK_STREAMING_WINDOW_DURATION", "60000"));
-        JavaDStream<Span> spanStream = dStream.window(Duration.apply(windowInterval)).flatMap((FlatMapFunction<byte[], Span>) kinesisRecord -> {
+         // TO DO can put windowing if needed later
+        //long windowInterval = Integer.parseInt(getPropOrEnv("SPARK_STREAMING_WINDOW_DURATION", "60000"));
+        JavaDStream<Span> spanStream = dStream.flatMap((FlatMapFunction<byte[], Span>) kinesisRecord -> {
             String payload = new String(decompress(kinesisRecord), StandardCharsets.UTF_8);
             String[] records = payload.split(System.lineSeparator());
             List<Span> spanList = new LinkedList<>();
@@ -120,8 +138,13 @@ public class SparkKinesisRunner {
                         span.serviceName = span.process.serviceName;
                         spanList.add(span);
                     }
+                    Map<String,String> tags = new HashMap<>();
+                    for (Map.Entry<String, String> tag: span.tag.entrySet()) {
+                        tags.put (tag.getKey().replace("@","."),tag.getValue());
+                    }
+                    span.tag = tags;
                 } catch (Exception e) {
-                    System.out.println("Exception for record : "+record);
+                    logger.error("Exception for record : "+record);
                     e.printStackTrace();
                 }
             }
@@ -130,7 +153,7 @@ public class SparkKinesisRunner {
 
         JavaPairDStream<String, Span> traceIdSpanTuple = spanStream.mapToPair(record -> new Tuple2<>(record.traceID, record));
         JavaDStream<Trace> tracesStream = traceIdSpanTuple.groupByKey().map(traceIdSpans -> {
-            System.out.printf("TraceID: %s\n", traceIdSpans._1);
+            logger.info("TraceID: "+traceIdSpans._1);
             Iterable<Span> spans = traceIdSpans._2();
             Trace trace = new Trace();
             trace.traceId = traceIdSpans._1();
@@ -140,12 +163,13 @@ public class SparkKinesisRunner {
         });
 
         List<ModelRunner> modelRunner = Arrays.asList(
-                new TraceHeight(),
-                new ServiceDepth(),
-                new ServiceHeight(),
+        /* Removing problematic metrics*/        
+                //new TraceHeight(),
+                //new ServiceDepth(),
+                //new ServiceHeight(),
                 new NetworkLatency(),
-                new NumberOfErrors(),
-                new DirectDependencies(),
+                //new NumberOfErrors(),
+                //new DirectDependencies(),
                 // trace quality
                 new HasClientServerSpans(),
                 new UniqueSpanId());

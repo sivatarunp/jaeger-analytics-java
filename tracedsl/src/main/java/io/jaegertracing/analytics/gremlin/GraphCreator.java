@@ -15,8 +15,7 @@ import java.util.Map;
 public class GraphCreator {
 
   private GraphCreator() {}
-
-  private static final Counter ORPHAN_SPAN_COUNTER = Counter.build()
+/*  private static final Counter ORPHAN_SPAN_COUNTER = Counter.build()
           .name("orphan_span_total")
           .help("Number of orphan spans within single trace")
           .labelNames("service", "operation")
@@ -40,7 +39,7 @@ public class GraphCreator {
           .help("Number of spans in trace with root span")
           .create()
           .register();
-
+*/
   public static Graph create(Trace trace) {
     TinkerGraph graph = TinkerGraph.open();
 
@@ -67,7 +66,7 @@ public class GraphCreator {
         vertex.property(tag.key.replace("@","."), tag.value);
       });
     }
-
+/*
     boolean hasOrphanSpan = false;
     for (Span span: trace.spans) {
       Vertex vertex = vertexMap.get(span.spanID);
@@ -88,7 +87,7 @@ public class GraphCreator {
     if(hasOrphanSpan) {
       ORPHAN_SPAN_TRACE_COUNTER.inc();
     }
-
+*/
     return graph;
   }
 
