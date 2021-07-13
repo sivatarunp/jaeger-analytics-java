@@ -90,6 +90,7 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
                 .set("spark.executor.cores", getPropOrEnv("SPARK_EXECUTOR_CORES",SPARK_EXECUTOR_CORES ))
                 .set("spark.driver.cores", getPropOrEnv("SPARK_DRIVER_CORES", SPARK_DRIVER_CORES))
                 .set("spark.executor.instances", getPropOrEnv("SPARK_EXECUTOR_INSTANCES", SPARK_EXECUTOR_INSTANCES))
+                .set("log4j.configuration", getPropOrEnv("log4j.configuration", "file:'/data/log4j.properties'"))
                 .set("spark.serializer", getPropOrEnv("SPARK_SERIALIZER", SPARK_SERIALIZER));
 
 /*  other explored values of settings 
@@ -124,6 +125,7 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
         String applicationName = (getPropOrEnv("SPARK_STREAMING_BATCH_DURATION", "10000"));
         KinesisInputDStream<byte[]> kinesisStream = KinesisInputDStream.builder()
                 .streamingContext(ssc)
+                .endpointUrl(service_endpoint)
                 .regionName(region)
                 .streamName(getPropOrEnv("KINESIS_STREAM", "common_haystack_traces"))
                 .initialPosition(KinesisInitialPositions.fromKinesisInitialPosition(initialPosition))
@@ -164,7 +166,7 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
 
         JavaPairDStream<String, Span> traceIdSpanTuple = spanStream.mapToPair(record -> new Tuple2<>(record.traceID, record));
         JavaDStream<Trace> tracesStream = traceIdSpanTuple.groupByKey().map(traceIdSpans -> {
-            logger.info("TraceID: "+traceIdSpans._1);
+            logger.warn("TraceID: "+traceIdSpans._1);
             Iterable<Span> spans = traceIdSpans._2();
             Trace trace = new Trace();
             trace.traceId = traceIdSpans._1();
@@ -195,6 +197,7 @@ private static final Logger logger = Logger.getLogger(SparkKinesisRunner.class.g
 
         ssc.start();
         ssc.awaitTermination();
+        ssc.stop();
     }
 
     private static String getPropOrEnv(String key, String defaultValue) {
