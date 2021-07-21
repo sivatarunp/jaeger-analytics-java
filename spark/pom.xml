@@ -39,6 +39,11 @@
       </exclusions>
     </dependency>
     <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.14.1</version>
+    </dependency>
+    <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-streaming_${version.scala}</artifactId>
     </dependency>
@@ -79,7 +84,7 @@
                 </transformer>
               </transformers>
               <!-- spark + scala + ... = lots and lots of classes! -->
-              <minimizeJar>true</minimizeJar>
+              <!-- <minimizeJar>true</minimizeJar> -->
               <filters>
                 <!-- Prevent minification from excluding classes looked up by name -->
                 <filter>
